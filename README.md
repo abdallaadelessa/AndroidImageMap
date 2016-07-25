@@ -1,3 +1,6 @@
+#Screenshot
+![alt tag](https://github.com/abdallaadelessa/AndroidImageMap/blob/workaround/screen%20shot.gif)
+
 An implementation of an HTML map like element in an Android View:
 
 - Supports images as drawable or bitmap in layout
