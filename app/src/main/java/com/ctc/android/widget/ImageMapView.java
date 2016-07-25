@@ -129,19 +129,6 @@ public class ImageMapView extends SubsamplingScaleImageView {
         return newPoints;
     }
 
-    private Path convertSourcePathToViewCoord(Path path) {
-        Path newPath = new Path();
-        PointF[] points = getPathPoints(path);
-        int i = 0;
-        for(PointF pointF : points) {
-            PointF newPoint = sourceToViewCoord(pointF);
-            if(i == 0) newPath.moveTo(newPoint.x, newPoint.y);
-            else newPath.lineTo(newPoint.x, newPoint.y);
-            i++;
-        }
-        return newPath;
-    }
-
     public static PointF[] getPathPoints(Path path) {
         int numOfPoints = 4;
         PointF[] pointArray = new PointF[numOfPoints];
@@ -168,6 +155,19 @@ public class ImageMapView extends SubsamplingScaleImageView {
         for(PointF pointF : points) {
             if(i == 0) newPath.moveTo(pointF.x, pointF.y);
             else newPath.lineTo(pointF.x, pointF.y);
+            i++;
+        }
+        return newPath;
+    }
+
+    private Path convertSourcePathToViewCoord(Path path) {
+        Path newPath = new Path();
+        PointF[] points = getPathPoints(path);
+        int i = 0;
+        for(PointF pointF : points) {
+            PointF newPoint = sourceToViewCoord(pointF);
+            if(i == 0) newPath.moveTo(newPoint.x, newPoint.y);
+            else newPath.lineTo(newPoint.x, newPoint.y);
             i++;
         }
         return newPath;
