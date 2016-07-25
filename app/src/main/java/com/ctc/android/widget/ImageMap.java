@@ -53,7 +53,7 @@ public class ImageMap extends ImageView {
     //           image size will likely be larger than screen
 
     // by default, this is true
-    private boolean mFitImageToScreen = true;
+    private boolean mFitImageToScreen = false;
 
     // For certain images, it is best to always resize using the original
     // image bits. This requires keeping the original image in memory along with the
