@@ -27,6 +27,7 @@ import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.text.TextUtils;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.Toast;
@@ -67,7 +68,8 @@ public class ImageMapTestActivity extends Activity {
                 for(Region region : regions) {
                     RectF rectF = new RectF();
                     region.path.computeBounds(rectF, true);
-                    if(region.elementBounds.contains(sCoord.x, sCoord.y)) {
+                    boolean regionContainPoint = region.elementBounds.contains(sCoord.x, sCoord.y);
+                    if(regionContainPoint) {
                         canHandleClick = true;
                         selectedId = region.id;
                     }
@@ -75,7 +77,7 @@ public class ImageMapTestActivity extends Activity {
                 if(canHandleClick) refreshSvg();
             }
         });
-        mSvg = Sharp.loadResource(getResources(), R.raw.image);
+        mSvg = Sharp.loadResource(getResources(), R.raw.map);
         refreshSvg();
     }
 
@@ -96,9 +98,9 @@ public class ImageMapTestActivity extends Activity {
             public <T> T onSvgElement(@Nullable String id, @NonNull T element, @Nullable RectF elementBounds, @NonNull Canvas canvas, @Nullable RectF canvasBounds, @Nullable Paint paint) {
                 if(paint != null && paint.getStyle() == Paint.Style.FILL) {
                     ImageMapTestActivity.this.canvasBounds = canvasBounds;
-                    regions.add(new Region(id, (Path) element, new RectF(elementBounds)));
+                    regions.add(new Region(getId(id, elementBounds), (Path) element, new RectF(elementBounds)));
                     if(selectedId != null && selectedId.equals(id)) {
-                        paint.setColor(Color.BLACK);
+                        paint.setColor(Color.WHITE);
                     }
                 }
                 return element;
@@ -119,11 +121,21 @@ public class ImageMapTestActivity extends Activity {
         });
     }
 
+    private String getId(@Nullable String id, RectF elementBounds) {
+        if(!TextUtils.isEmpty(id)) {
+            return id;
+        }
+        else {
+            return elementBounds.toString().trim();
+        }
+    }
+
     // --------------->
 
     @NonNull
     private PointF toImageBound(float x, float y) {
-        return new PointF(x * canvasBounds.right, y * canvasBounds.bottom);
+        PointF pointF = new PointF(x * canvasBounds.right, y * canvasBounds.bottom);
+        return pointF;
     }
 
     public static class Region {
