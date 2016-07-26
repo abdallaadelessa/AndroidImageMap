@@ -4,7 +4,7 @@
 
 An implementation of an HTML map like element in an Android View:
 
-- Supports images as drawable or bitmap or SVG in layout
+- Supports images as Drawable or SVG
 - Supports panning if the image is larger than the device screen
 - Supports pinch-zoom
 - Supports callbacks when an area is tapped.
