@@ -16,6 +16,7 @@ import android.view.MotionEvent;
 import com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -187,6 +188,11 @@ public class ImageMapView extends SubsamplingScaleImageView {
         public Region(String id, String commaSeparatedCoords) {
             this(id);
             addAllAsString(commaSeparatedCoords);
+        }
+
+        public Region(String id, Path path) {
+            this(id);
+            points = Arrays.asList(getPathPoints(path));
         }
 
         public void addAllAsString(String commaSeparatedCoords) {

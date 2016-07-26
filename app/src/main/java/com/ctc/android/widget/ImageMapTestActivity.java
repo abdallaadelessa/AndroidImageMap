@@ -17,55 +17,168 @@
 package com.ctc.android.widget;
 
 import android.app.Activity;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.PointF;
 import android.graphics.RectF;
+import android.graphics.drawable.PictureDrawable;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
+import android.text.TextUtils;
+import android.view.GestureDetector;
+import android.view.MotionEvent;
+import android.view.View;
 
 import com.davemorrissey.labs.subscaleview.ImageSource;
+import com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView;
+import com.pixplicity.sharp.OnSvgElementListener;
+import com.pixplicity.sharp.Sharp;
+import com.pixplicity.sharp.SharpDrawable;
+import com.pixplicity.sharp.SharpPicture;
+
+import java.util.HashSet;
+import java.util.Set;
 
 public class ImageMapTestActivity extends Activity {
-    ImageMapView mImageMap;
-
+    private SubsamplingScaleImageView mImageMap;
+    private GestureDetector gestureDetector;
+    // ----->
+    private Set<Region> regions = new HashSet<Region>();
+    private SharpPicture pictureFromSVG;
+    // ----->
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main);
-        mImageMap = (ImageMapView) findViewById(R.id.map);
-
-        mImageMap.addRegion(new ImageMapView.Region("Region 1", "160,190,228,198,227,270,152,269"));
-        mImageMap.addRegion(new ImageMapView.Region("Region 2", "231,41,294,41,299,81,230,76"));
-        mImageMap.addRegion(new ImageMapView.Region("Region 4", "227,80,299,80,302,120,282,116,226,116"));
-        mImageMap.addRegion(new ImageMapView.Region("Region 5", "229,35,226,87,154,81,145,86,131,69,123,21"));
-        mImageMap.addRegion(new ImageMapView.Region("Region 6", "224,89,223,143,148,136,156,83"));
-        mImageMap.addRegion(new ImageMapView.Region("Region 7", "316,158,353,154,382,196,378,207,373,202,329,206,327,171"));
-        mImageMap.addRegion(new ImageMapView.Region("Region 8", "365,124,389,120,393,133,398,172,393,185,382,193,355,155"));
-        mImageMap.addRegion(new ImageMapView.Region("Region 9", "374,227,401,222,403,284,387,288,384,280,362,282,369,263"));
-
-        mImageMap.setImage(ImageSource.resource(R.drawable.usamap));
+        mImageMap = (SubsamplingScaleImageView) findViewById(R.id.map);
         mImageMap.setMaxScale(10f);
-        mImageMap.setImageMapViewListener(new ImageMapView.ImageMapViewListener() {
+        gestureDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
             @Override
-            public void onDrawSelectedRegion(Canvas canvas, ImageMapView.Region selectedRegion) {
-                RectF bounds = new RectF();
-                selectedRegion.toPath().computeBounds(bounds, false);
-                PointF centerPoint = mImageMap.sourceToViewCoord(bounds.left, bounds.centerY());
-
-                Paint paint = new Paint();
-                float textSize = 60f;
-                paint.setTextSize(textSize);
-                paint.setColor(Color.WHITE);
-                canvas.drawText(selectedRegion.id, centerPoint.x, centerPoint.y, paint);
-            }
-
-            @Override
-            public void onRegionClicked(ImageMapView.Region region) {
-                // Toast.makeText(ImageMapTestActivity.this, region.id + " Clicked", Toast.LENGTH_SHORT).show();
+            public boolean onSingleTapConfirmed(MotionEvent e) {
+                float x = e.getX();
+                float y = e.getY();
+                ImageMapTestActivity.this.onPhotoTap(x, y);
+                return false;
             }
         });
+        mImageMap.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                gestureDetector.onTouchEvent(event);
+                return false;
+            }
+        });
+        loadSvg();
+    }
+
+    // --------------->
+
+    private void loadSvg() {
+        Sharp mSvg = Sharp.loadResource(getResources(), R.raw.map);
+        mSvg.setOnElementListener(new OnSvgElementListener() {
+            @Nullable
+            @Override
+            public void onSvgStart(@NonNull Canvas canvas, @Nullable RectF bounds) {
+            }
+
+            @Override
+            public void onSvgEnd(@NonNull Canvas canvas, @Nullable RectF bounds) {
+            }
+
+            @Override
+            public <T> T onSvgElement(@Nullable String id, @NonNull T element, @Nullable RectF elementBounds, @NonNull Canvas canvas, @Nullable RectF canvasBounds, @Nullable Paint paint) {
+                if(paint != null && paint.getStyle() == Paint.Style.FILL) {
+                    regions.add(new Region(getId(id, elementBounds), (Path) element, new RectF(elementBounds)));
+                }
+                return element;
+            }
+
+            @Override
+            public <T> void onSvgElementDrawn(@Nullable String id, @NonNull T element, @NonNull Canvas canvas, @Nullable Paint paint) {
+            }
+
+        });
+        mSvg.getSharpPicture(new Sharp.PictureCallback() {
+            @Override
+            public void onPictureReady(SharpPicture picture) {
+                ImageMapTestActivity.this.pictureFromSVG = picture;
+                Bitmap bitmap = pictureDrawableToBitmap(picture.getDrawable(mImageMap));
+                mImageMap.setImage(ImageSource.bitmap(bitmap), mImageMap.getState());
+            }
+        });
+    }
+
+    private void onPhotoTap(float x, float y) {
+        PointF tappedPoint = toImageBound(x, y);
+        for(Region region : regions) {
+            if(region.elementBounds.contains(tappedPoint.x, tappedPoint.y)) {
+                onRegionClicked(region);
+            }
+        }
+    }
+
+    public void onRegionClicked(Region region) {
+        SharpDrawable drawable = pictureFromSVG.getDrawable(mImageMap);
+        Bitmap bitmap = pictureDrawableToBitmap(drawable);
+        Canvas canvas = new Canvas(bitmap);
+        Paint paint = new Paint();
+        paint.setStyle(Paint.Style.FILL);
+        paint.setColor(Color.WHITE);
+        canvas.drawPath(region.path, paint);
+        mImageMap.setImage(ImageSource.bitmap(bitmap), mImageMap.getState());
+    }
+
+    // --------------->
+
+    private String getId(@Nullable String id, RectF elementBounds) {
+        return !TextUtils.isEmpty(id) ? id : elementBounds.toString().trim();
+    }
+
+    private Bitmap pictureDrawableToBitmap(PictureDrawable pictureDrawable) {
+        Bitmap bmp = Bitmap.createBitmap(pictureDrawable.getIntrinsicWidth(), pictureDrawable.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bmp);
+        canvas.drawPicture(pictureDrawable.getPicture());
+        return bmp;
+    }
+
+    @NonNull
+    private PointF toImageBound(float x, float y) {
+        return mImageMap.viewToSourceCoord(x, y);
+    }
+
+    // --------------->
+
+    public static class Region {
+        public String id;
+        public RectF elementBounds;
+        public Path path;
+
+        public Region(String id, Path path, RectF elementBounds) {
+            this.id = id;
+            this.path = path;
+            this.elementBounds = elementBounds;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if(this == o) return true;
+            if(o == null || getClass() != o.getClass()) return false;
+
+            Region region = (Region) o;
+
+            return id != null ? id.equals(region.id) : region.id == null;
+
+        }
+
+        @Override
+        public int hashCode() {
+            return id != null ? id.hashCode() : 0;
+        }
     }
 
 }
