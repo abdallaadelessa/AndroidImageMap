@@ -48,7 +48,7 @@ public class ImageMapTestActivity extends Activity {
     private GestureDetector gestureDetector;
     // ----->
     private Set<Region> regions = new HashSet<Region>();
-    private SharpPicture picture;
+    private SharpPicture pictureFromSVG;
     // ----->
 
     @Override
@@ -106,7 +106,7 @@ public class ImageMapTestActivity extends Activity {
         mSvg.getSharpPicture(new Sharp.PictureCallback() {
             @Override
             public void onPictureReady(SharpPicture picture) {
-                ImageMapTestActivity.this.picture = picture;
+                ImageMapTestActivity.this.pictureFromSVG = picture;
                 Bitmap bitmap = pictureDrawableToBitmap(picture.getDrawable(mImageMap));
                 mImageMap.setImage(ImageSource.bitmap(bitmap), mImageMap.getState());
             }
@@ -123,7 +123,7 @@ public class ImageMapTestActivity extends Activity {
     }
 
     public void onRegionClicked(Region region) {
-        SharpDrawable drawable = picture.getDrawable(mImageMap);
+        SharpDrawable drawable = pictureFromSVG.getDrawable(mImageMap);
         Bitmap bitmap = pictureDrawableToBitmap(drawable);
         Canvas canvas = new Canvas(bitmap);
         Paint paint = new Paint();
