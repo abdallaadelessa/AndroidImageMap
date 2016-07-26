@@ -136,12 +136,7 @@ public class ImageMapTestActivity extends Activity {
     // --------------->
 
     private String getId(@Nullable String id, RectF elementBounds) {
-        if(!TextUtils.isEmpty(id)) {
-            return id;
-        }
-        else {
-            return elementBounds.toString().trim();
-        }
+        return !TextUtils.isEmpty(id) ? id : elementBounds.toString().trim();
     }
 
     private Bitmap pictureDrawableToBitmap(PictureDrawable pictureDrawable) {
