@@ -17,13 +17,14 @@
 package com.ctc.android.widget;
 
 import android.app.Activity;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.PointF;
 import android.graphics.RectF;
-import android.graphics.drawable.Drawable;
+import android.graphics.drawable.PictureDrawable;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -34,6 +35,7 @@ import android.widget.Toast;
 
 import com.pixplicity.sharp.OnSvgElementListener;
 import com.pixplicity.sharp.Sharp;
+import com.pixplicity.sharp.SharpDrawable;
 import com.pixplicity.sharp.SharpPicture;
 
 import java.util.HashSet;
@@ -49,7 +51,7 @@ public class ImageMapTestActivity extends Activity {
     private PhotoViewAttacher mAttacher;
     Set<Region> regions = new HashSet<Region>();
     private String selectedId;
-
+    private SharpPicture picture;
     // --------------->
 
     @Override
@@ -63,27 +65,25 @@ public class ImageMapTestActivity extends Activity {
         mAttacher.setOnPhotoTapListener(new PhotoViewAttacher.OnPhotoTapListener() {
             @Override
             public void onPhotoTap(View view, float x, float y) {
-                boolean canHandleClick = false;
-                PointF sCoord = toImageBound(x, y);
+                PointF tappedPoint = toImageBound(x, y);
                 for(Region region : regions) {
                     RectF rectF = new RectF();
                     region.path.computeBounds(rectF, true);
-                    boolean regionContainPoint = region.elementBounds.contains(sCoord.x, sCoord.y);
+                    boolean regionContainPoint = region.elementBounds.contains(tappedPoint.x, tappedPoint.y);
                     if(regionContainPoint) {
-                        canHandleClick = true;
                         selectedId = region.id;
+                        onRegionClicked(tappedPoint, region);
                     }
                 }
-                if(canHandleClick) refreshSvg();
             }
         });
         mSvg = Sharp.loadResource(getResources(), R.raw.map);
-        refreshSvg();
+        loadSvg();
     }
 
     // --------------->
 
-    private void refreshSvg() {
+    private void loadSvg() {
         mSvg.setOnElementListener(new OnSvgElementListener() {
             @Nullable
             @Override
@@ -114,12 +114,24 @@ public class ImageMapTestActivity extends Activity {
         mSvg.getSharpPicture(new Sharp.PictureCallback() {
             @Override
             public void onPictureReady(SharpPicture picture) {
-                Drawable drawable = picture.getDrawable(mImageMap);
-                mImageMap.setImageDrawable(drawable);
-                //mAttacher.update();
+                ImageMapTestActivity.this.picture = picture;
+                mImageMap.setImageDrawable(picture.getDrawable(mImageMap));
             }
         });
     }
+
+    public void onRegionClicked(PointF tappedPoint, Region region) {
+        SharpDrawable drawable = picture.getDrawable(mImageMap);
+        Bitmap bitmap = pictureDrawableToBitmap(drawable);
+        Canvas canvas = new Canvas(bitmap);
+        Paint paint = new Paint();
+        paint.setStyle(Paint.Style.FILL);
+        paint.setColor(Color.WHITE);
+        canvas.drawPath(region.path, paint);
+        mImageMap.setImageBitmap(bitmap);
+    }
+
+    // --------------->
 
     private String getId(@Nullable String id, RectF elementBounds) {
         if(!TextUtils.isEmpty(id)) {
@@ -130,7 +142,12 @@ public class ImageMapTestActivity extends Activity {
         }
     }
 
-    // --------------->
+    private Bitmap pictureDrawableToBitmap(PictureDrawable pictureDrawable) {
+        Bitmap bmp = Bitmap.createBitmap(pictureDrawable.getIntrinsicWidth(), pictureDrawable.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bmp);
+        canvas.drawPicture(pictureDrawable.getPicture());
+        return bmp;
+    }
 
     @NonNull
     private PointF toImageBound(float x, float y) {
