@@ -31,7 +31,6 @@ import android.support.annotation.Nullable;
 import android.text.TextUtils;
 import android.view.View;
 import android.widget.ImageView;
-import android.widget.Toast;
 
 import com.pixplicity.sharp.OnSvgElementListener;
 import com.pixplicity.sharp.Sharp;
@@ -45,45 +44,34 @@ import uk.co.senab.photoview.PhotoViewAttacher;
 
 public class ImageMapTestActivity extends Activity {
     private ImageView mImageMap;
-    private Sharp mSvg;
-    private Toast toast;
-    private RectF canvasBounds;
     private PhotoViewAttacher mAttacher;
-    Set<Region> regions = new HashSet<Region>();
+    // ----->
+    private RectF canvasBounds;
+    private Set<Region> regions = new HashSet<Region>();
     private String selectedId;
     private SharpPicture picture;
-    // --------------->
+    // ----->
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main);
-        toast = Toast.makeText(ImageMapTestActivity.this, "", Toast.LENGTH_SHORT);
         mImageMap = (ImageView) findViewById(R.id.map);
         mAttacher = new PhotoViewAttacher(mImageMap);
         mAttacher.setMaximumScale(10f);
         mAttacher.setOnPhotoTapListener(new PhotoViewAttacher.OnPhotoTapListener() {
             @Override
             public void onPhotoTap(View view, float x, float y) {
-                PointF tappedPoint = toImageBound(x, y);
-                for(Region region : regions) {
-                    RectF rectF = new RectF();
-                    region.path.computeBounds(rectF, true);
-                    boolean regionContainPoint = region.elementBounds.contains(tappedPoint.x, tappedPoint.y);
-                    if(regionContainPoint) {
-                        selectedId = region.id;
-                        onRegionClicked(tappedPoint, region);
-                    }
-                }
+                ImageMapTestActivity.this.onPhotoTap(x, y);
             }
         });
-        mSvg = Sharp.loadResource(getResources(), R.raw.map);
         loadSvg();
     }
 
     // --------------->
 
     private void loadSvg() {
+        Sharp mSvg = Sharp.loadResource(getResources(), R.raw.map);
         mSvg.setOnElementListener(new OnSvgElementListener() {
             @Nullable
             @Override
@@ -118,6 +106,19 @@ public class ImageMapTestActivity extends Activity {
                 mImageMap.setImageDrawable(picture.getDrawable(mImageMap));
             }
         });
+    }
+
+    private void onPhotoTap(float x, float y) {
+        PointF tappedPoint = toImageBound(x, y);
+        for(Region region : regions) {
+            RectF rectF = new RectF();
+            region.path.computeBounds(rectF, true);
+            boolean regionContainPoint = region.elementBounds.contains(tappedPoint.x, tappedPoint.y);
+            if(regionContainPoint) {
+                selectedId = region.id;
+                onRegionClicked(tappedPoint, region);
+            }
+        }
     }
 
     public void onRegionClicked(PointF tappedPoint, Region region) {
