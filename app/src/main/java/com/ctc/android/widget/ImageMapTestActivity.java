@@ -75,7 +75,7 @@ public class ImageMapTestActivity extends Activity {
                 if(canHandleClick) refreshSvg();
             }
         });
-        mSvg = Sharp.loadResource(getResources(), R.raw.cartman);
+        mSvg = Sharp.loadResource(getResources(), R.raw.image);
         refreshSvg();
     }
 
