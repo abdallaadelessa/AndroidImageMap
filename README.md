@@ -5,12 +5,9 @@
 An implementation of an HTML map like element in an Android View:
 
 - Supports images as drawable or bitmap or SVG in layout
-- Allows for a list of area tags in xml
-- Enables use of cut and paste HTML area tags to a resource xml  (ie, the ability to take an HTML map - and image and use it with minimal editing)
 - Supports panning if the image is larger than the device screen
 - Supports pinch-zoom
 - Supports callbacks when an area is tapped.
-- Supports showing annotations as bubble text and provide callback if the bubble is tapped
 
 # Xml
 ```
