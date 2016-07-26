@@ -17,56 +17,73 @@
 package com.ctc.android.widget;
 
 import android.app.Activity;
-import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.PointF;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
-import android.graphics.drawable.PictureDrawable;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.view.View;
+import android.widget.ImageView;
 import android.widget.Toast;
 
-import com.davemorrissey.labs.subscaleview.ImageSource;
 import com.pixplicity.sharp.OnSvgElementListener;
 import com.pixplicity.sharp.Sharp;
 import com.pixplicity.sharp.SharpPicture;
 
-import java.util.Random;
+import java.util.HashSet;
+import java.util.Set;
+
+import uk.co.senab.photoview.PhotoViewAttacher;
 
 public class ImageMapTestActivity extends Activity {
-    private ImageMapView mImageMap;
+    private ImageView mImageMap;
     private Sharp mSvg;
     private Toast toast;
+    private RectF canvasBounds;
+    private PhotoViewAttacher mAttacher;
+    Set<Region> regions = new HashSet<Region>();
+    private String selectedId;
+
+    // --------------->
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main);
-        toast = Toast.makeText(ImageMapTestActivity.this, " Clicked", Toast.LENGTH_SHORT);
-        mImageMap = (ImageMapView) findViewById(R.id.map);
-        mImageMap.setImageMapViewListener(new ImageMapView.ImageMapViewListener() {
+        toast = Toast.makeText(ImageMapTestActivity.this, "", Toast.LENGTH_SHORT);
+        mImageMap = (ImageView) findViewById(R.id.map);
+        mAttacher = new PhotoViewAttacher(mImageMap);
+        mAttacher.setMaximumScale(10f);
+        mAttacher.setOnPhotoTapListener(new PhotoViewAttacher.OnPhotoTapListener() {
             @Override
-            public void onDrawSelectedRegion(Canvas canvas, ImageMapView.Region selectedRegion) {
-
-            }
-
-            @Override
-            public void onRegionClicked(ImageMapView.Region region) {
-                toast.setText(region.id + " Clicked");
-                toast.show();
+            public void onPhotoTap(View view, float x, float y) {
+                boolean canHandleClick = false;
+                PointF sCoord = toImageBound(x, y);
+                for(Region region : regions) {
+                    RectF rectF = new RectF();
+                    region.path.computeBounds(rectF, true);
+                    if(region.elementBounds.contains(sCoord.x, sCoord.y)) {
+                        canHandleClick = true;
+                        selectedId = region.id;
+                    }
+                }
+                if(canHandleClick) refreshSvg();
             }
         });
-        mImageMap.setMaxScale(10f);
         mSvg = Sharp.loadResource(getResources(), R.raw.cartman);
-        reloadSvg(false);
+        refreshSvg();
     }
 
-    private void reloadSvg(final boolean changeColor) {
+    // --------------->
+
+    private void refreshSvg() {
         mSvg.setOnElementListener(new OnSvgElementListener() {
+            @Nullable
             @Override
             public void onSvgStart(@NonNull Canvas canvas, @Nullable RectF bounds) {
             }
@@ -77,10 +94,12 @@ public class ImageMapTestActivity extends Activity {
 
             @Override
             public <T> T onSvgElement(@Nullable String id, @NonNull T element, @Nullable RectF elementBounds, @NonNull Canvas canvas, @Nullable RectF canvasBounds, @Nullable Paint paint) {
-                mImageMap.addRegion(new ImageMapView.Region(id, (Path) element));
-                if(("hat".equals(id))) {
-                    Random random = new Random();
-                    paint.setColor(Color.argb(255, random.nextInt(256), random.nextInt(256), random.nextInt(256)));
+                if(paint != null && paint.getStyle() == Paint.Style.FILL) {
+                    ImageMapTestActivity.this.canvasBounds = canvasBounds;
+                    regions.add(new Region(id, (Path) element, new RectF(elementBounds)));
+                    if(selectedId != null && selectedId.equals(id)) {
+                        paint.setColor(Color.BLACK);
+                    }
                 }
                 return element;
             }
@@ -94,15 +113,45 @@ public class ImageMapTestActivity extends Activity {
             @Override
             public void onPictureReady(SharpPicture picture) {
                 Drawable drawable = picture.getDrawable(mImageMap);
-                mImageMap.setImage(ImageSource.bitmap(pictureDrawableToBitmap((PictureDrawable) drawable)));
+                mImageMap.setImageDrawable(drawable);
+                //mAttacher.update();
             }
         });
     }
 
-    private Bitmap pictureDrawableToBitmap(PictureDrawable pictureDrawable) {
-        Bitmap bmp = Bitmap.createBitmap(pictureDrawable.getIntrinsicWidth(), pictureDrawable.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(bmp);
-        canvas.drawPicture(pictureDrawable.getPicture());
-        return bmp;
+    // --------------->
+
+    @NonNull
+    private PointF toImageBound(float x, float y) {
+        return new PointF(x * canvasBounds.right, y * canvasBounds.bottom);
     }
+
+    public static class Region {
+        public String id;
+        public RectF elementBounds;
+        public Path path;
+
+        public Region(String id, Path path, RectF elementBounds) {
+            this.id = id;
+            this.path = path;
+            this.elementBounds = elementBounds;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if(this == o) return true;
+            if(o == null || getClass() != o.getClass()) return false;
+
+            Region region = (Region) o;
+
+            return id != null ? id.equals(region.id) : region.id == null;
+
+        }
+
+        @Override
+        public int hashCode() {
+            return id != null ? id.hashCode() : 0;
+        }
+    }
+
 }
