@@ -19,76 +19,56 @@ To have the aspect ratio kept:
 change this (ImageView.java line 54) to from true to false
 private boolean mFitImageToScreen=true;  
 
-Use notes:
-
-To associate the map with the img, list the map in in ImageMap attributes
-
-<!--?xml version="1.0" encoding="utf-8"?-->
+Xml
+```
+<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:ctc="http://schemas.android.com/apk/res/com.ctc.android.widget"
+    xmlns:ctc="http://schemas.android.com/apk/res-auto"
     android:orientation="vertical"
     android:layout_width="fill_parent"
-    android:layout_height="fill_parent"
-    >
-    <com.ctc.android.widget.ImageMap
+    android:layout_height="fill_parent">
+    <com.ctc.android.widget.ImageMapView
         android:id="@+id/map"
-        android:layout_width="fill_parent"
-        android:layout_height="fill_parent"
-        android:src="@drawable/usamap"
-        ctc:map="usamap"/>
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+
 </LinearLayout>
-
-
-The area map is specified in your project at res/xml/map.xml
-One difference over HTML maps is that each area must have an id. I went back and forth on this requirement, and I may change the code to allow for areas without id. The code will use the name attribute if present, otherwise it will look for title or alt.
-
-<!--?xml version="1.0" encoding="utf-8"?-->
-<maps xmlns:android="http://schemas.android.com/apk/res/android">
-    <map name="gridmap">
-        <area id="@+id/area1001" shape="rect" coords="118,124,219,226" />
-        <area id="@+id/area1002" shape="rect" coords="474,374,574,476" />
-        <area id="@+id/area1004" shape="rect" coords="710,878,808,980" />
-        <area id="@+id/area1005" shape="circle" coords="574,214,74" />
-        <area id="@+id/area1006" shape="poly" coords="250,780,250,951,405,951" />
-        <area id="@+id/area1007" shape="poly" coords="592,502,592,730,808,730,808,502,709,502,709,603,690,603,690,502" />
-    </map>
-    <map name="usamap">
-        <area id="@+id/area1" shape="poly" coords="230,35,294,38,299,57,299,79,228,79" />
-...
-     </map>
-</maps>
-
+```
 The image itself is placed in res/drawable-nodpi so that the system will not attempt to fit the image to the device based on dpi. This way we are guaranteed that our area coordinates will map properly to the displayed image.  If you want to use different density drawables, you will have to make changes in the code based on the DisplayMetrics.density.
 
-Here is a sample activity that finds the view in the layout and adds an on click handler
+Here is a sample code
+```
+        mImageMap = (ImageMapView) findViewById(R.id.map);
+        mImageMap.addRegion(new ImageMapView.Region("Region 1", "160,190,228,198,227,270,152,269"));
+        mImageMap.addRegion(new ImageMapView.Region("Region 2", "231,41,294,41,299,81,230,76"));
+        mImageMap.addRegion(new ImageMapView.Region("Region 4", "227,80,299,80,302,120,282,116,226,116"));
+        mImageMap.addRegion(new ImageMapView.Region("Region 5", "229,35,226,87,154,81,145,86,131,69,123,21"));
+        mImageMap.addRegion(new ImageMapView.Region("Region 6", "224,89,223,143,148,136,156,83"));
+        mImageMap.addRegion(new ImageMapView.Region("Region 7", "316,158,353,154,382,196,378,207,373,202,329,206,327,171"));
+        mImageMap.addRegion(new ImageMapView.Region("Region 8", "365,124,389,120,393,133,398,172,393,185,382,193,355,155"));
+        mImageMap.addRegion(new ImageMapView.Region("Region 9", "374,227,401,222,403,284,387,288,384,280,362,282,369,263"));
 
-public class ImageMapTestActivity extends Activity {
-    ImageMap mImageMap;
- 
-    @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.main);
- 
-        // find the image map in the view
-        mImageMap = (ImageMap)findViewById(R.id.map);
- 
-        // add a click handler to react when areas are tapped
-        mImageMap.addOnImageMapClickedHandler(new ImageMap.OnImageMapClickedHandler() {
+        mImageMap.setImage(ImageSource.resource(R.drawable.usamap));
+        mImageMap.setMaxScale(10f);
+        mImageMap.setImageMapViewListener(new ImageMapView.ImageMapViewListener() {
             @Override
-            public void onImageMapClicked(int id) {
-                // when the area is tapped, show the name in a
-                // text bubble
-                mImageMap.showBubble(id);
+            public void onDrawSelectedRegion(Canvas canvas, ImageMapView.Region selectedRegion) {
+                RectF bounds = new RectF();
+                selectedRegion.toPath().computeBounds(bounds, false);
+                PointF centerPoint = mImageMap.sourceToViewCoord(bounds.left, bounds.centerY());
+
+                Paint paint = new Paint();
+                float textSize = 60f;
+                paint.setTextSize(textSize);
+                paint.setColor(Color.WHITE);
+                canvas.drawText(selectedRegion.id, centerPoint.x, centerPoint.y, paint);
             }
- 
+
             @Override
-            public void onBubbleClicked(int id) {
-                // react to info bubble for area being tapped
+            public void onRegionClicked(ImageMapView.Region region) {
+                // Toast.makeText(ImageMapTestActivity.this, region.id + " Clicked", Toast.LENGTH_SHORT).show();
             }
         });
-    }
-}
-
+```
 Don't hesitate to ask if you have any other questions.
