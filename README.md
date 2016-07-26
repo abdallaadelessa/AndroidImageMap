@@ -1,5 +1,6 @@
 #Screenshot
-![alt tag](https://github.com/abdallaadelessa/AndroidImageMap/blob/workaround/screen%20shot.gif)
+![alt tag](https://github.com/abdallaadelessa/AndroidImageMap/blob/master/screen%20shot.gif)
+![alt tag](https://github.com/abdallaadelessa/AndroidImageMap/blob/master/screen%20shot2.gif)
 
 An implementation of an HTML map like element in an Android View:
 
@@ -19,7 +20,7 @@ To have the aspect ratio kept:
 change this (ImageView.java line 54) to from true to false
 private boolean mFitImageToScreen=true;  
 
-Xml
+# Xml
 ```
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout
@@ -28,47 +29,155 @@ Xml
     android:orientation="vertical"
     android:layout_width="fill_parent"
     android:layout_height="fill_parent">
-    <com.ctc.android.widget.ImageMapView
+    <com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView
         android:id="@+id/map"
         android:layout_width="match_parent"
         android:layout_height="match_parent"/>
 
 </LinearLayout>
-```
-The image itself is placed in res/drawable-nodpi so that the system will not attempt to fit the image to the device based on dpi. This way we are guaranteed that our area coordinates will map properly to the displayed image.  If you want to use different density drawables, you will have to make changes in the code based on the DisplayMetrics.density.
 
-Here is a sample code
 ```
-        mImageMap = (ImageMapView) findViewById(R.id.map);
-        mImageMap.addRegion(new ImageMapView.Region("Region 1", "160,190,228,198,227,270,152,269"));
-        mImageMap.addRegion(new ImageMapView.Region("Region 2", "231,41,294,41,299,81,230,76"));
-        mImageMap.addRegion(new ImageMapView.Region("Region 4", "227,80,299,80,302,120,282,116,226,116"));
-        mImageMap.addRegion(new ImageMapView.Region("Region 5", "229,35,226,87,154,81,145,86,131,69,123,21"));
-        mImageMap.addRegion(new ImageMapView.Region("Region 6", "224,89,223,143,148,136,156,83"));
-        mImageMap.addRegion(new ImageMapView.Region("Region 7", "316,158,353,154,382,196,378,207,373,202,329,206,327,171"));
-        mImageMap.addRegion(new ImageMapView.Region("Region 8", "365,124,389,120,393,133,398,172,393,185,382,193,355,155"));
-        mImageMap.addRegion(new ImageMapView.Region("Region 9", "374,227,401,222,403,284,387,288,384,280,362,282,369,263"));
 
-        mImageMap.setImage(ImageSource.resource(R.drawable.usamap));
+# Here is a sample code
+
+```
+     
+public class ImageMapTestActivity extends Activity {
+    private SubsamplingScaleImageView mImageMap;
+    private GestureDetector gestureDetector;
+    // ----->
+    private Set<Region> regions = new HashSet<Region>();
+    private SharpPicture pictureFromSVG;
+    // ----->
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.main);
+        mImageMap = (SubsamplingScaleImageView) findViewById(R.id.map);
         mImageMap.setMaxScale(10f);
-        mImageMap.setImageMapViewListener(new ImageMapView.ImageMapViewListener() {
+        gestureDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
             @Override
-            public void onDrawSelectedRegion(Canvas canvas, ImageMapView.Region selectedRegion) {
-                RectF bounds = new RectF();
-                selectedRegion.toPath().computeBounds(bounds, false);
-                PointF centerPoint = mImageMap.sourceToViewCoord(bounds.left, bounds.centerY());
-
-                Paint paint = new Paint();
-                float textSize = 60f;
-                paint.setTextSize(textSize);
-                paint.setColor(Color.WHITE);
-                canvas.drawText(selectedRegion.id, centerPoint.x, centerPoint.y, paint);
-            }
-
-            @Override
-            public void onRegionClicked(ImageMapView.Region region) {
-                // Toast.makeText(ImageMapTestActivity.this, region.id + " Clicked", Toast.LENGTH_SHORT).show();
+            public boolean onSingleTapConfirmed(MotionEvent e) {
+                float x = e.getX();
+                float y = e.getY();
+                ImageMapTestActivity.this.onPhotoTap(x, y);
+                return false;
             }
         });
+        mImageMap.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                gestureDetector.onTouchEvent(event);
+                return false;
+            }
+        });
+        loadSvg();
+    }
+
+    // --------------->
+
+    private void loadSvg() {
+        Sharp mSvg = Sharp.loadResource(getResources(), R.raw.map);
+        mSvg.setOnElementListener(new OnSvgElementListener() {
+            @Nullable
+            @Override
+            public void onSvgStart(@NonNull Canvas canvas, @Nullable RectF bounds) {
+            }
+
+            @Override
+            public void onSvgEnd(@NonNull Canvas canvas, @Nullable RectF bounds) {
+            }
+
+            @Override
+            public <T> T onSvgElement(@Nullable String id, @NonNull T element, @Nullable RectF elementBounds, @NonNull Canvas canvas, @Nullable RectF canvasBounds, @Nullable Paint paint) {
+                if(paint != null && paint.getStyle() == Paint.Style.FILL) {
+                    regions.add(new Region(getId(id, elementBounds), (Path) element, new RectF(elementBounds)));
+                }
+                return element;
+            }
+
+            @Override
+            public <T> void onSvgElementDrawn(@Nullable String id, @NonNull T element, @NonNull Canvas canvas, @Nullable Paint paint) {
+            }
+
+        });
+        mSvg.getSharpPicture(new Sharp.PictureCallback() {
+            @Override
+            public void onPictureReady(SharpPicture picture) {
+                ImageMapTestActivity.this.pictureFromSVG = picture;
+                Bitmap bitmap = pictureDrawableToBitmap(picture.getDrawable(mImageMap));
+                mImageMap.setImage(ImageSource.bitmap(bitmap), mImageMap.getState());
+            }
+        });
+    }
+
+    private void onPhotoTap(float x, float y) {
+        PointF tappedPoint = toImageBound(x, y);
+        for(Region region : regions) {
+            if(region.elementBounds.contains(tappedPoint.x, tappedPoint.y)) {
+                onRegionClicked(region);
+            }
+        }
+    }
+
+    public void onRegionClicked(Region region) {
+        SharpDrawable drawable = pictureFromSVG.getDrawable(mImageMap);
+        Bitmap bitmap = pictureDrawableToBitmap(drawable);
+        Canvas canvas = new Canvas(bitmap);
+        Paint paint = new Paint();
+        paint.setStyle(Paint.Style.FILL);
+        paint.setColor(Color.WHITE);
+        canvas.drawPath(region.path, paint);
+        mImageMap.setImage(ImageSource.bitmap(bitmap), mImageMap.getState());
+    }
+
+    // --------------->
+
+    private String getId(@Nullable String id, RectF elementBounds) {
+        return !TextUtils.isEmpty(id) ? id : elementBounds.toString().trim();
+    }
+
+    private Bitmap pictureDrawableToBitmap(PictureDrawable pictureDrawable) {
+        Bitmap bmp = Bitmap.createBitmap(pictureDrawable.getIntrinsicWidth(), pictureDrawable.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bmp);
+        canvas.drawPicture(pictureDrawable.getPicture());
+        return bmp;
+    }
+
+    @NonNull
+    private PointF toImageBound(float x, float y) {
+        return mImageMap.viewToSourceCoord(x, y);
+    }
+
+    // --------------->
+
+    public static class Region {
+        public String id;
+        public RectF elementBounds;
+        public Path path;
+
+        public Region(String id, Path path, RectF elementBounds) {
+            this.id = id;
+            this.path = path;
+            this.elementBounds = elementBounds;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if(this == o) return true;
+            if(o == null || getClass() != o.getClass()) return false;
+
+            Region region = (Region) o;
+
+            return id != null ? id.equals(region.id) : region.id == null;
+
+        }
+
+        @Override
+        public int hashCode() {
+            return id != null ? id.hashCode() : 0;
+        }
+    }
+
 ```
-Don't hesitate to ask if you have any other questions.
