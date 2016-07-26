@@ -29,9 +29,12 @@ import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.text.TextUtils;
+import android.view.GestureDetector;
+import android.view.MotionEvent;
 import android.view.View;
-import android.widget.ImageView;
 
+import com.davemorrissey.labs.subscaleview.ImageSource;
+import com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView;
 import com.pixplicity.sharp.OnSvgElementListener;
 import com.pixplicity.sharp.Sharp;
 import com.pixplicity.sharp.SharpDrawable;
@@ -40,15 +43,11 @@ import com.pixplicity.sharp.SharpPicture;
 import java.util.HashSet;
 import java.util.Set;
 
-import uk.co.senab.photoview.PhotoViewAttacher;
-
 public class ImageMapTestActivity extends Activity {
-    private ImageView mImageMap;
-    private PhotoViewAttacher mAttacher;
+    private SubsamplingScaleImageView mImageMap;
+    private GestureDetector gestureDetector;
     // ----->
-    private RectF canvasBounds;
     private Set<Region> regions = new HashSet<Region>();
-    private String selectedId;
     private SharpPicture picture;
     // ----->
 
@@ -56,13 +55,22 @@ public class ImageMapTestActivity extends Activity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main);
-        mImageMap = (ImageView) findViewById(R.id.map);
-        mAttacher = new PhotoViewAttacher(mImageMap);
-        mAttacher.setMaximumScale(10f);
-        mAttacher.setOnPhotoTapListener(new PhotoViewAttacher.OnPhotoTapListener() {
+        mImageMap = (SubsamplingScaleImageView) findViewById(R.id.map);
+        mImageMap.setMaxScale(10f);
+        gestureDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
             @Override
-            public void onPhotoTap(View view, float x, float y) {
+            public boolean onSingleTapConfirmed(MotionEvent e) {
+                float x = e.getX();
+                float y = e.getY();
                 ImageMapTestActivity.this.onPhotoTap(x, y);
+                return false;
+            }
+        });
+        mImageMap.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                gestureDetector.onTouchEvent(event);
+                return false;
             }
         });
         loadSvg();
@@ -85,11 +93,7 @@ public class ImageMapTestActivity extends Activity {
             @Override
             public <T> T onSvgElement(@Nullable String id, @NonNull T element, @Nullable RectF elementBounds, @NonNull Canvas canvas, @Nullable RectF canvasBounds, @Nullable Paint paint) {
                 if(paint != null && paint.getStyle() == Paint.Style.FILL) {
-                    ImageMapTestActivity.this.canvasBounds = canvasBounds;
                     regions.add(new Region(getId(id, elementBounds), (Path) element, new RectF(elementBounds)));
-                    if(selectedId != null && selectedId.equals(id)) {
-                        paint.setColor(Color.WHITE);
-                    }
                 }
                 return element;
             }
@@ -103,7 +107,8 @@ public class ImageMapTestActivity extends Activity {
             @Override
             public void onPictureReady(SharpPicture picture) {
                 ImageMapTestActivity.this.picture = picture;
-                mImageMap.setImageDrawable(picture.getDrawable(mImageMap));
+                Bitmap bitmap = pictureDrawableToBitmap(picture.getDrawable(mImageMap));
+                mImageMap.setImage(ImageSource.bitmap(bitmap), mImageMap.getState());
             }
         });
     }
@@ -111,17 +116,13 @@ public class ImageMapTestActivity extends Activity {
     private void onPhotoTap(float x, float y) {
         PointF tappedPoint = toImageBound(x, y);
         for(Region region : regions) {
-            RectF rectF = new RectF();
-            region.path.computeBounds(rectF, true);
-            boolean regionContainPoint = region.elementBounds.contains(tappedPoint.x, tappedPoint.y);
-            if(regionContainPoint) {
-                selectedId = region.id;
-                onRegionClicked(tappedPoint, region);
+            if(region.elementBounds.contains(tappedPoint.x, tappedPoint.y)) {
+                onRegionClicked(region);
             }
         }
     }
 
-    public void onRegionClicked(PointF tappedPoint, Region region) {
+    public void onRegionClicked(Region region) {
         SharpDrawable drawable = picture.getDrawable(mImageMap);
         Bitmap bitmap = pictureDrawableToBitmap(drawable);
         Canvas canvas = new Canvas(bitmap);
@@ -129,7 +130,7 @@ public class ImageMapTestActivity extends Activity {
         paint.setStyle(Paint.Style.FILL);
         paint.setColor(Color.WHITE);
         canvas.drawPath(region.path, paint);
-        mImageMap.setImageBitmap(bitmap);
+        mImageMap.setImage(ImageSource.bitmap(bitmap), mImageMap.getState());
     }
 
     // --------------->
@@ -152,9 +153,10 @@ public class ImageMapTestActivity extends Activity {
 
     @NonNull
     private PointF toImageBound(float x, float y) {
-        PointF pointF = new PointF(x * canvasBounds.right, y * canvasBounds.bottom);
-        return pointF;
+        return mImageMap.viewToSourceCoord(x, y);
     }
+
+    // --------------->
 
     public static class Region {
         public String id;
